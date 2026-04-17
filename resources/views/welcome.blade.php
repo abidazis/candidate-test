@@ -8,13 +8,13 @@
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans antialiased">
+<body class="bg-gray-50 text-gray-800 font-sans antialiased relative">
     <div id="app" class="max-w-5xl mx-auto p-8">
         
         <div class="flex justify-between items-center mb-8">
             <div>
                 <h1 class="text-3xl font-bold text-gray-900">Supplier Management</h1>
-                <p class="text-gray-500 mt-1">CLT Toolbox - Feature Test Assignment</p>
+                <p class="text-gray-500 mt-1">CLT Toolbox - Feature Test Assignment (With UI Conflict Resolution)</p>
             </div>
             <button @click="createSupplier" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow font-medium transition-colors">
                 + Add New Supplier
@@ -58,6 +58,42 @@
             </table>
         </div>
 
+        <div v-if="showConflictModal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full p-6">
+                <div class="flex justify-between items-center border-b pb-4 mb-4">
+                    <h2 class="text-2xl font-bold text-red-600 flex items-center">
+                        ⚠️ Data Conflict Detected!
+                    </h2>
+                    <span class="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm font-semibold">
+                        Conflict @{{ currentConflictIndex + 1 }} of @{{ conflicts.length }}
+                    </span>
+                </div>
+                
+                <p class="text-gray-600 mb-6">
+                    Layup: <strong>@{{ currentConflict().layupName }}</strong> | Layer Order: <strong>@{{ currentConflict().layerOrder }}</strong><br>
+                    Please choose which data version you want to keep:
+                </p>
+
+                <div class="grid grid-cols-2 gap-6 mb-6">
+                    <div class="border-2 border-gray-200 rounded-lg p-5 bg-gray-50 relative">
+                        <span class="absolute -top-3 left-4 bg-gray-200 text-gray-700 px-2 text-xs font-bold rounded">EXISTING (CURRENT)</span>
+                        <pre class="text-sm text-gray-800 mt-2 overflow-auto whitespace-pre-wrap">@{{ formatJson(currentConflict().existing) }}</pre>
+                        <button @click="resolveConflict('existing')" class="mt-5 w-full bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded shadow transition">
+                            ✅ Keep Existing Data
+                        </button>
+                    </div>
+
+                    <div class="border-2 border-blue-300 rounded-lg p-5 bg-blue-50 relative">
+                        <span class="absolute -top-3 left-4 bg-blue-500 text-white px-2 text-xs font-bold rounded">INCOMING (IMPORTED)</span>
+                        <pre class="text-sm text-blue-900 mt-2 overflow-auto whitespace-pre-wrap">@{{ formatJson(currentConflict().incoming) }}</pre>
+                        <button @click="resolveConflict('incoming')" class="mt-5 w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow transition">
+                            ✅ Accept Incoming Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -66,48 +102,52 @@
         createApp({
             setup() {
                 const suppliers = ref([]);
+                
+                // State for Conflict Resolution
+                const showConflictModal = ref(false);
+                const conflicts = ref([]);
+                const currentConflictIndex = ref(0);
+                const pendingPayload = ref(null);
+                const activeSupplierId = ref(null);
 
-                // Fetch data dari Backend API
                 const fetchSuppliers = async () => {
                     try {
                         const response = await axios.get('/api/suppliers');
                         suppliers.value = response.data.data;
                     } catch (error) {
-                        console.error('Error fetching suppliers:', error);
+                        console.error(error);
                     }
                 };
 
-                // Bikin Supplier Baru (Pake prompt sederhana biar cepat)
                 const createSupplier = async () => {
                     const name = prompt('Enter new supplier name:');
                     if (name) {
-                        try {
-                            await axios.post('/api/suppliers', { name });
-                            fetchSuppliers(); // Refresh table
-                        } catch (error) {
-                            alert('Failed to create supplier.');
-                        }
+                        await axios.post('/api/suppliers', { name });
+                        fetchSuppliers();
                     }
                 };
 
-                // Hapus Supplier
                 const deleteSupplier = async (id) => {
-                    if (confirm('Are you sure you want to delete this supplier?')) {
-                        try {
-                            await axios.delete(`/api/suppliers/${id}`);
-                            fetchSuppliers();
-                        } catch (error) {
-                            alert('Failed to delete supplier.');
-                        }
+                    if (confirm('Delete this supplier?')) {
+                        await axios.delete(`/api/suppliers/${id}`);
+                        fetchSuppliers();
                     }
                 };
 
-                // Fitur Export (Buka link API Export di tab baru)
                 const exportData = (id) => {
                     window.open(`/api/suppliers/${id}/export`, '_blank');
                 };
 
-                // Fitur Import (Baca file JSON, kirim ke API)
+                // Helper formatting JSON for modal
+                const formatJson = (obj) => {
+                    return JSON.stringify(obj, null, 2);
+                };
+
+                const currentConflict = () => {
+                    return conflicts.value[currentConflictIndex.value];
+                };
+
+                // The Magic Import with Conflict Detection
                 const importData = async (event, id) => {
                     const file = event.target.files[0];
                     if (!file) return;
@@ -115,36 +155,95 @@
                     const reader = new FileReader();
                     reader.onload = async (e) => {
                         try {
-                            // Parse text menjadi object JSON
-                            const payload = JSON.parse(e.target.result);
+                            const incomingPayload = JSON.parse(e.target.result);
+                            const supplierData = suppliers.value.find(s => s.id === id);
                             
-                            // Tembak API Import kita
-                            await axios.post(`/api/suppliers/${id}/import`, payload);
+                            conflicts.value = [];
                             
-                            alert('Import Success! Conflict resolution (Overwrite Existing) applied.');
-                            fetchSuppliers(); // Refresh data
+                            // Deteksi Konflik Logik
+                            if (supplierData.layups) {
+                                incomingPayload.layups.forEach((inLayup, layupIndex) => {
+                                    const exLayup = supplierData.layups.find(l => l.name === inLayup.name);
+                                    if (exLayup && exLayup.layers) {
+                                        inLayup.layers.forEach((inLayer, layerIndex) => {
+                                            const exLayer = exLayup.layers.find(l => l.layer_order === inLayer.layer_order);
+                                            // Jika urutan sama tapi ada value yang beda = KONFLIK!
+                                            if (exLayer && (
+                                                parseFloat(exLayer.thickness) !== parseFloat(inLayer.thickness) ||
+                                                parseFloat(exLayer.width) !== parseFloat(inLayer.width) ||
+                                                parseFloat(exLayer.angle) !== parseFloat(inLayer.angle)
+                                            )) {
+                                                conflicts.value.push({
+                                                    layupName: inLayup.name,
+                                                    layerOrder: inLayer.layer_order,
+                                                    layupIndex: layupIndex,
+                                                    layerIndex: layerIndex,
+                                                    existing: { thickness: exLayer.thickness, width: exLayer.width, angle: exLayer.angle },
+                                                    incoming: { thickness: inLayer.thickness, width: inLayer.width, angle: inLayer.angle }
+                                                });
+                                            }
+                                        });
+                                    }
+                                });
+                            }
+
+                            if (conflicts.value.length > 0) {
+                                // Tahan pengiriman ke API, buka Modal UI
+                                pendingPayload.value = incomingPayload;
+                                activeSupplierId.value = id;
+                                currentConflictIndex.value = 0;
+                                showConflictModal.value = true;
+                            } else {
+                                // Aman, langsung gas tembak API
+                                executeApiImport(id, incomingPayload);
+                            }
+
                         } catch (error) {
-                            console.error(error);
-                            alert('Error: Invalid JSON format or Server Error.');
+                            alert('Invalid JSON format');
                         }
                     };
                     reader.readAsText(file);
-                    
-                    // Reset input file biar bisa import file yang sama lagi kalau mau tes
                     event.target.value = '';
                 };
 
-                // Jalan otomatis pas halaman dimuat
+                // Fungsi saat tombol di modal di-klik
+                const resolveConflict = (choice) => {
+                    const conflict = currentConflict();
+                    
+                    if (choice === 'existing') {
+                        // Jika pilih data lama, kita ganti data di payload (yang mau dikirim) pakai data existing
+                        const targetLayer = pendingPayload.value.layups[conflict.layupIndex].layers[conflict.layerIndex];
+                        targetLayer.thickness = conflict.existing.thickness;
+                        targetLayer.width = conflict.existing.width;
+                        targetLayer.angle = conflict.existing.angle;
+                    }
+
+                    // Lanjut ke konflik berikutnya atau selesai
+                    if (currentConflictIndex.value < conflicts.value.length - 1) {
+                        currentConflictIndex.value++;
+                    } else {
+                        showConflictModal.value = false;
+                        executeApiImport(activeSupplierId.value, pendingPayload.value);
+                    }
+                };
+
+                const executeApiImport = async (id, payload) => {
+                    try {
+                        await axios.post(`/api/suppliers/${id}/import`, payload);
+                        alert('✅ Import & Conflict Resolution Successfully Applied!');
+                        fetchSuppliers();
+                    } catch (error) {
+                        alert('Server error during import.');
+                    }
+                };
+
                 onMounted(() => {
                     fetchSuppliers();
                 });
 
                 return {
-                    suppliers,
-                    createSupplier,
-                    deleteSupplier,
-                    exportData,
-                    importData
+                    suppliers, createSupplier, deleteSupplier, exportData, importData,
+                    showConflictModal, conflicts, currentConflictIndex, currentConflict, resolveConflict, formatJson
                 }
             }
         }).mount('#app');
