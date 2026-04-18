@@ -1,155 +1,85 @@
-# Feature Test Assignment
+# CLT Toolbox - Candidate Test Assignment
+Sistem Manajemen Supplier dengan fitur hierarki Layup & Layer, serta sistem Resolusi Konflik berbasis UI dan Backend. Proyek ini dibangun untuk memenuhi persyaratan Technical Test di CLT Toolbox.
 
-## 1. Instructions
+# Fitur Utama
+CRUD Supplier: Manajemen data supplier secara reaktif.
 
-- Clone or fork this repository.
-- Create a new branch: `{user}-assignment`.
-- Invite **@ikhsan017** and **@dhiaaziz** as collaborators.
-- Follow the setup instructions provided in the repository before running the project.
+Hierarchical Data: Relasi One-to-Many (Supplier -> Layup -> Layer).
 
-## 2. Feature Requirements
+JSON Import/Export: Pertukaran data antar sistem melalui format JSON.
 
-### Core Features (Main Criteria)
+Backend Conflict Resolution: Menggunakan strategi Overwrite Existing dengan metode updateOrCreate.
 
-- [ ] CRUD Suppliers
-- [ ] CRUD CLT Layups (nested under Supplier)
-- [ ] CRUD CLT Layers (nested under Layup)
+Bonus: UI-Based Conflict Resolution: Pop-up Modal reaktif untuk membandingkan data Existing vs Incoming secara visual sebelum proses import selesai.
 
-The structure should properly reflect the hierarchy:
-Supplier → Layups → Layers
+# Tech Stack
+Backend: Laravel 11 (PHP 8.x)
 
-### Data Model (ERD)
+Frontend: Vue.js 3 (via CDN) & Tailwind CSS
 
-Below is the Entity Relationship Diagram (ERD) representing the data structure:
+Database: MySQL
 
-![ERD](./erd-new.png)
+Testing: PHPUnit (Feature Testing)
 
-### Import / Export (Main Criteria)
+# Prasyarat Sistem
+PHP >= 8.2
 
-- [ ] **Export by Supplier**
-    - Must include: Supplier + all related Layups + all related Layers
+Composer
 
-- [ ] **Import by Supplier**
-    - Must create and/or update Layups and Layers under the specified supplier
+MySQL / XAMPP
 
-Format is flexible (JSON / CSV / Excel, etc.). JSON format is completely acceptable.
+Git
 
-## 3. Feature: Conflict Resolution (Bonus – Important)
+# Instruksi Instalasi (Local Environment)
+Clone Repository & Pindah Branch
 
-During import, conflicts may occur when incoming data differs from existing records.
+Bash
+git clone https://github.com/abidazis/candidate-test.git
+cd candidate-test
+git checkout abidathanandaazis-assignment
+Instalasi Dependency
 
-### Conflict Detection Rules
+Bash
+composer install
+Konfigurasi Environment
 
-#### 1. Layup-Level Conflict
+Salin file .env.example menjadi .env:
 
-If a layup with the same `name` already exists under the same supplier:
+Bash
+copy .env.example .env
+Buat database baru di MySQL (misal: clt_toolbox_db).
 
-- Treat it as the same layup candidate.
-- Do **not** automatically create a new layup.
+Sesuaikan konfigurasi database di file .env:
 
-#### 2. Layer-Level Conflict
+Cuplikan kode
+DB_DATABASE=clt_toolbox_db
+DB_USERNAME=root
+DB_PASSWORD=
+Generate Application Key
 
-If:
+Bash
+php artisan key:generate
+Jalankan Migration
 
-- A layer with the same `layer_order` exists within that layup,
-- **AND** one or more fields differ (`thickness`, `width`, `angle`),
+Bash
+php artisan migrate
+Jalankan Server
 
-→ This must be treated as a conflict.
+Bash
+php artisan serve
+Akses aplikasi di: http://localhost:8000
 
----
+# Menjalankan Automated Test
+Untuk memverifikasi fungsionalitas API dan integrasi database, jalankan perintah berikut:
 
-### Required Conflict Handling
+Bash
+php artisan test --filter SupplierImportTest
 
-You must implement a clearly defined conflict resolution strategy.
+# Cara Penggunaan Fitur Import & Conflict Resolution
+Tambahkan Supplier baru melalui tombol + Add New Supplier.
 
-At minimum, support **one** of the following:
+Klik Import JSON dan pilih file .json dengan struktur yang sesuai.
 
-- **Overwrite Existing**  
-  (Incoming data replaces current data)
+Jika terdapat data dengan Nama Layup dan Order Layer yang sama namun memiliki nilai yang berbeda, sistem akan secara otomatis memunculkan Conflict Resolution Modal.
 
-- **Skip Conflict**  
-  (Keep current data, ignore incoming change)
-
-- **Duplicate Layup**  
-  (Create a new layup with a suffix such as `name (imported)`)
-
-- **Reject Entire Import**  
-  (Abort and return a detailed conflict report)
-
----
-
-### Advanced Conflict Resolution (UI-Based – Bonus)
-
-For additional bonus points, implement a **manual conflict resolution interface** similar to GitHub merge conflict resolution.
-
-Expected behavior:
-
-- Display **Existing Version (Current Data)** and  
-  **Incoming Version (Imported Data)** side-by-side
-- Highlight field-level differences
-- Allow the user to choose:
-    - ✅ Keep Existing
-    - ✅ Accept Incoming
-- Support resolving conflicts one-by-one
-- Provide navigation (e.g., “1 of 3 discrepancies”)
-
-This may be implemented as:
-
-- A modal, or
-- A dedicated conflict resolution page.
-
-## 4. Design Reference
-
-A design reference is available in Figma:
-
-[Figma Design File](https://www.figma.com/design/odWJ887r00aslmSFPIHMCx/SPEC-Toolbox---Feature-Test?node-id=11001-35&t=XUggOaUUi9p8jGFG-1)
-
-> The design is for reference only. Exact visual matching is not required.
-
-## 5. Evaluation Criteria
-
-### Main Evaluation
-
-- Correct implementation of the required features
-
-### Bonus Evaluation
-
-**Architecture & Design Patterns**
-
-- Use Repository and/or Service pattern
-- Bind interfaces via a Service Provider
-
-**Laravel Best Practices**
-
-- Form Request validation
-- Policies or Gates for authorization
-- Proper use of Route Model Binding
-- Clean, maintainable code following Laravel conventions
-
-**Automated Testing**
-
-- Unit tests (validation, services, repositories)
-- Feature tests (CRUD and import/export flows)
-
-**Additional Improvements**
-
-- Any meaningful enhancements will be considered positively
-
-## 6. Submission
-
-The deadline will be provided via email.  
-Please ensure submission within the specified timeframe.
-
-
-## 7. Demo
-
-Include one of the following with your submission:
-
-- A demo video (recommended), or
-- A live project link
-
-Ensure the demo clearly showcases:
-
-- CRUD functionality
-- Import / Export feature
-- Conflict resolution behavior
+Pilih "Accept Incoming Data" untuk memperbarui data lama, atau "Keep Existing Data" untuk membatalkan perubahan pada baris tersebut.

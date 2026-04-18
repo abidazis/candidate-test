@@ -1,0 +1,21 @@
+{
+    "layups": [
+        {
+            "name": "Super CLT Wall",
+            "layers": [
+                {
+                    "layer_order": 1,
+                    "thickness": 999.9,
+                    "width": 150.0,
+                    "angle": 45
+                },
+                {
+                    "layer_order": 2,
+                    "thickness": 888.8,
+                    "width": 150.0,
+                    "angle": 45
+                }
+            ]
+        }
+    ]
+}
